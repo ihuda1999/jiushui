@@ -27,6 +27,7 @@ jobs:
       - run: npx vite build
         env:
           VITE_API_BASE: https://jiushuideploy.vercel.app
+          GITHUB_PAGES: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

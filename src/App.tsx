@@ -325,37 +325,47 @@ export default function App() {
     return liquorOptions.filter((o) => o.includes(liquorName));
   }, [liquorName]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     setTouched(true);
     if (!isValid) return;
 
-    setSubmitState("success");
+    setSubmitState("submitting");
+    const snapTable = tableNumber.trim();
+    const snapLiquor = liquorName.trim();
+    const snapBarcode = [...barcodeFiles];
+    const snapProduction = [...productionFiles];
 
-    setTimeout(() => {
-      const snapTable = tableNumber.trim();
-      const snapLiquor = liquorName.trim();
-      const snapBarcode = [...barcodeFiles];
-      const snapProduction = [...productionFiles];
+    try {
+      const [compressedBarcodes, compressedProductions] = await Promise.all([
+        Promise.all(snapBarcode.map((f) => compressImage(f.file))),
+        Promise.all(snapProduction.map((f) => compressImage(f.file))),
+      ]);
 
-      (async () => {
-        try {
-          const [compressedBarcodes, compressedProductions] = await Promise.all([
-            Promise.all(snapBarcode.map((f) => compressImage(f.file))),
-            Promise.all(snapProduction.map((f) => compressImage(f.file))),
-          ]);
+      const formData = new FormData();
+      formData.append("tableNumber", snapTable);
+      formData.append("liquorName", snapLiquor);
+      compressedBarcodes.forEach((f) => formData.append("barcodeFile", f, f.name));
+      compressedProductions.forEach((f) => formData.append("productionDateFile", f, f.name));
 
-          const formData = new FormData();
-          formData.append("tableNumber", snapTable);
-          formData.append("liquorName", snapLiquor);
-          compressedBarcodes.forEach((f) => formData.append("barcodeFile", f, f.name));
-          compressedProductions.forEach((f) => formData.append("productionDateFile", f, f.name));
+      const apiBase = import.meta.env.VITE_API_BASE || "";
+      const response = await fetch(`${apiBase}/api/verify/submit`, { method: "POST", body: formData });
 
-          await fetch(`${import.meta.env.VITE_API_BASE || ""}/api/verify/submit`, { method: "POST", body: formData });
-        } catch (err) {
-          console.error("Background submission error:", err);
-        }
-      })();
-    }, 0);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `提交失败 (${response.status})`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || "提交失败，请重试");
+      }
+
+      setSubmitState("success");
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      setSubmitState("error");
+      setErrorMsg(err.message || "网络错误，请检查连接后重试");
+    }
   }, [isValid, tableNumber, liquorName, barcodeFiles, productionFiles]);
 
   const handleReset = () => {
@@ -367,6 +377,24 @@ export default function App() {
     setErrorMsg("");
     setTouched(false);
   };
+
+  if (submitState === "submitting") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-5">
+        <div className="bg-white rounded-2xl p-8 w-full max-w-sm flex flex-col items-center gap-5 text-center shadow-sm">
+          <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+            <Loader2 size={28} className="text-blue-500 animate-spin" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold text-gray-900">正在提交</h2>
+            <p className="text-[13px] text-gray-400 leading-relaxed">
+              照片上传中，请稍候…
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (submitState === "success") {
     return (
@@ -464,9 +492,17 @@ export default function App() {
           <button
             type="button"
             onClick={handleSubmit}
-            className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-semibold text-sm active:bg-red-600 active:scale-[0.99] shadow-sm shadow-red-100 transition-all flex items-center justify-center gap-2"
+            disabled={submitState === "submitting"}
+            className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-semibold text-sm active:bg-red-600 active:scale-[0.99] shadow-sm shadow-red-100 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:active:scale-100"
           >
-            确认并提交
+            {submitState === "submitting" ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                提交中…
+              </>
+            ) : (
+              "确认并提交"
+            )}
           </button>
           {touched && !isValid && (
             <p className="text-center text-[11px] text-gray-400">请完善所有必填项后再提交</p>

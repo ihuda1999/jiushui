@@ -5,6 +5,10 @@ import axios from 'axios';
 import * as FormDataModule from 'form-data';
 const FormData = FormDataModule.default || FormDataModule;
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // Configure multer for serverless (use memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,7 +72,7 @@ async function syncToFeishu(tableNumber: string, liquorName: string, barcodeFile
 
   const barcodeAttachments = barcodeTokens.map((ft: string) => ({ file_token: ft }));
   const productionAttachments = productionTokens.map((ft: string) => ({ file_token: ft }));
-  const submitTimeStr = dayjs().format("YYYY-MM-DD HH:mm:ss");
+  const submitTimeStr = dayjs().tz('Asia/Shanghai').format("YYYY-MM-DD HH:mm:ss");
 
   const fields = {
     "日期": submitTimeStr,
@@ -91,6 +95,15 @@ async function syncToFeishu(tableNumber: string, liquorName: string, barcodeFile
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers for cross-origin requests (e.g. GitHub Pages → Vercel API)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

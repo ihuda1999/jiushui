@@ -8,6 +8,10 @@ import axios from "axios";
 import * as FormDataModule from "form-data";
 const FormData = FormDataModule.default || FormDataModule;
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import { createServer as createViteServer } from "vite";
 
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -108,7 +112,7 @@ async function syncToFeishu(tableNumber: string, liquorName: string, barcodeFile
   const productionAttachments = productionTokens.map(ft => ({ file_token: ft }));
 
   // the field is just string dates, or real dates? "日期" string is safer if it is "Text". Based on schema, type: 1 (Text).
-  const submitTimeStr = dayjs().format("YYYY-MM-DD HH:mm:ss");
+  const submitTimeStr = dayjs().tz('Asia/Shanghai').format("YYYY-MM-DD HH:mm:ss");
 
   const fields = {
     // According to table schema: "日期" (Text), "桌台" (Text), "酒水名称" (Text), "酒水条形码" (Attachment), "酒水生产日期" (Attachment)

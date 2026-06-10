@@ -350,7 +350,7 @@ export default function App() {
           compressedBarcodes.forEach((f) => formData.append("barcodeFile", f, f.name));
           compressedProductions.forEach((f) => formData.append("productionDateFile", f, f.name));
 
-          await fetch("/api/verify/submit", { method: "POST", body: formData });
+          await fetch(`${import.meta.env.VITE_API_BASE || ""}/api/verify/submit`, { method: "POST", body: formData });
         } catch (err) {
           console.error("Background submission error:", err);
         }
